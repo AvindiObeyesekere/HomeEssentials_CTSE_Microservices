@@ -19,10 +19,25 @@ const userSchema = new mongoose.Schema(
       lowercase: true,
       trim: true,
     },
-    password: {
+    passwordHash: {
       type: String,
       required: true,
-      minlength: 6,
+    },
+    role: {
+      type: String,
+      enum: ['Customer', 'Admin', 'StoreManager', 'Cashier', 'Delivery', 'Support'],
+      default: 'Customer',
+    },
+    address: {
+      line1: String,
+      line2: String,
+      city: String,
+      district: String,
+      postalCode: String,
+      country: {
+        type: String,
+        default: 'Sri Lanka',
+      },
     },
   },
   {
