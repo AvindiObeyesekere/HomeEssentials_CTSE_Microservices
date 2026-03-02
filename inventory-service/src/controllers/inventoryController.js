@@ -269,6 +269,7 @@ exports.deductStock = async (req, res, next) => {
         // Deduct from total quantity
         inventory.quantity -= reservation.quantity;
         // Remove from reserved
+      //Done
         inventory.reservedQuantity -= reservation.quantity;
         inventory.lastRestocked = Date.now();
         await inventory.save();
