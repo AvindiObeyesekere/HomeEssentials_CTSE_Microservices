@@ -1,0 +1,276 @@
+openapi: 3.0.0
+info:
+  title: Inventory Service API
+  description: Inventory & Stock Management API for HomeEssentials+
+  version: 1.0.0
+  contact:
+    name: B4S1NDU
+    email: support@homeessentials.com
+
+servers:
+  - url: http://localhost:3003
+    description: Development server
+  - url: https://api.homeessentials.com/inventory
+    description: Production server
+
+tags:
+  - name: Inventory
+    description: Inventory management endpoints
+  - name: Reservations
+    description: Stock reservation endpoints
+
+paths:
+  /api/inventory:
+    get:
+      tags:
+        - Inventory
+      summary: Get all inventory items
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [LOW_STOCK, OUT_OF_STOCK, IN_STOCK]
+          description: Filter by stock status
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Successful response
+
+    post:
+      tags:
+        - Inventory
+      summary: Create inventory for a product
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InventoryInput'
+      responses:
+        '201':
+          description: Inventory created successfully
+        '400':
+          description: Inventory already exists
+
+  /api/inventory/{productId}:
+    get:
+      tags:
+        - Inventory
+      summary: Get inventory by product ID
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/Inventory'
+        '404':
+          description: Inventory not found
+
+    put:
+      tags:
+        - Inventory
+      summary: Update inventory stock
+      parameters:
+        - in: path
+          name: productId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: number
+                lowStockThreshold:
+                  type: number
+      responses:
+        '200':
+          description: Inventory updated successfully
+
+  /api/inventory/check:
+    post:
+      tags:
+        - Inventory
+      summary: Check stock availability
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - productId
+                - quantity
+              properties:
+                productId:
+                  type: string
+                quantity:
+                  type: number
+      responses:
+        '200':
+          description: Stock availability check result
+
+  /api/inventory/reserve:
+    post:
+      tags:
+        - Reservations
+      summary: Reserve stock for an order
+      description: Called by Order Service to reserve stock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - productId
+                - orderId
+                - quantity
+              properties:
+                productId:
+                  type: string
+                orderId:
+                  type: string
+                quantity:
+                  type: number
+                  minimum: 1
+      responses:
+        '200':
+          description: Stock reserved successfully
+        '400':
+          description: Insufficient stock
+
+  /api/inventory/release:
+    post:
+      tags:
+        - Reservations
+      summary: Release reserved stock
+      description: Called when order is cancelled or payment fails
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderId
+              properties:
+                orderId:
+                  type: string
+      responses:
+        '200':
+          description: Stock released successfully
+
+  /api/inventory/deduct:
+    post:
+      tags:
+        - Reservations
+      summary: Deduct stock after successful payment
+      description: Called by Order Service after payment confirmation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - orderId
+              properties:
+                orderId:
+                  type: string
+      responses:
+        '200':
+          description: Stock deducted successfully
+
+  /api/inventory/low-stock:
+    get:
+      tags:
+        - Inventory
+      summary: Get low stock items
+      responses:
+        '200':
+          description: List of low stock items
+
+components:
+  schemas:
+    Inventory:
+      type: object
+      properties:
+        _id:
+          type: string
+        productId:
+          type: string
+        productName:
+          type: string
+        quantity:
+          type: number
+        reservedQuantity:
+          type: number
+        availableQuantity:
+          type: number
+        lowStockThreshold:
+          type: number
+        stockStatus:
+          type: string
+          enum: [IN_STOCK, LOW_STOCK, OUT_OF_STOCK]
+        isLowStock:
+          type: boolean
+        location:
+          type: object
+        lastRestocked:
+          type: string
+          format: date-time
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    InventoryInput:
+      type: object
+      required:
+        - productId
+        - productName
+        - quantity
+      properties:
+        productId:
+          type: string
+        productName:
+          type: string
+        quantity:
+          type: number
+          minimum: 0
+        lowStockThreshold:
+          type: number
+          minimum: 0
+        reorderPoint:
+          type: number
