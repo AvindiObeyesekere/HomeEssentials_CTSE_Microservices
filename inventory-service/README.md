@@ -217,6 +217,158 @@ curl -X POST http://localhost:3003/api/inventory/reserve \
 curl http://localhost:3003/api/inventory/low-stock
 ```
 
+### Using Postman
+
+> Base URL: `http://localhost:3003` | Header: `Content-Type: application/json` on POST/PUT requests
+> 
+> Use the `_id` from Product Service as `productId` in all requests below.
+
+#### System Endpoints
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| `GET` | `http://localhost:3003/health` | Liveness check |
+| `GET` | `http://localhost:3003/readiness` | DB connectivity check |
+| `GET` | `http://localhost:3003/api-docs` | Swagger UI (browser) |
+
+#### Inventory CRUD
+
+**Get All Inventory**
+```
+GET http://localhost:3003/api/inventory
+```
+Query params: `?page=1&limit=10` · `?status=IN_STOCK` · `?status=LOW_STOCK` · `?status=OUT_OF_STOCK`
+
+**Get Inventory for a Product**
+```
+GET http://localhost:3003/api/inventory/:productId
+```
+
+**Get All Low Stock Items**
+```
+GET http://localhost:3003/api/inventory/low-stock
+```
+
+**Create Inventory — Normal Stock**
+```
+POST http://localhost:3003/api/inventory
+```
+```json
+{
+  "productId": "<product _id from Product Service>",
+  "productName": "Sunlight Soap",
+  "quantity": 500,
+  "lowStockThreshold": 50,
+  "location": {
+    "warehouse": "Main Warehouse",
+    "shelf": "B3"
+  }
+}
+```
+
+**Create Inventory — Low Stock Scenario**
+```
+POST http://localhost:3003/api/inventory
+```
+```json
+{
+  "productId": "<product _id>",
+  "productName": "Vim Dishwashing Bar",
+  "quantity": 8,
+  "lowStockThreshold": 10
+}
+```
+> `quantity (8) ≤ lowStockThreshold (10)` → `stockStatus: "LOW_STOCK"`
+
+**Create Inventory — Out of Stock Scenario**
+```
+POST http://localhost:3003/api/inventory
+```
+```json
+{
+  "productId": "<product _id>",
+  "productName": "Samba Rice 5kg",
+  "quantity": 0,
+  "lowStockThreshold": 20
+}
+```
+> `quantity = 0` → `stockStatus: "OUT_OF_STOCK"`
+
+**Update Inventory (Restock)**
+```
+PUT http://localhost:3003/api/inventory/:productId
+```
+```json
+{
+  "quantity": 1000,
+  "lowStockThreshold": 100,
+  "location": {
+    "warehouse": "Warehouse B",
+    "shelf": "A5"
+  }
+}
+```
+
+#### Stock Operations — Order Lifecycle
+
+> Full flow: **Check → Reserve → Deduct** (payment success) or **Check → Reserve → Release** (payment failed)
+
+**1. Check Stock Availability**
+```
+POST http://localhost:3003/api/inventory/check
+```
+```json
+{
+  "productId": "<product _id>",
+  "quantity": 20
+}
+```
+Expected: `available: true` and current `availableQuantity`.
+
+**2. Reserve Stock (Order Placed)**
+```
+POST http://localhost:3003/api/inventory/reserve
+```
+```json
+{
+  "productId": "<product _id>",
+  "orderId": "ORDER-001",
+  "quantity": 20
+}
+```
+Expected: `reservedQuantity +20`, `availableQuantity -20`. Reservation expires in 15 minutes.
+
+**3a. Deduct Stock — Payment SUCCESS**
+```
+POST http://localhost:3003/api/inventory/deduct
+```
+```json
+{
+  "orderId": "ORDER-001"
+}
+```
+Expected: `quantity` permanently reduced by 20. Reservation → `CONFIRMED`.
+
+**3b. Release Stock — Payment FAILED**
+```
+POST http://localhost:3003/api/inventory/release
+```
+```json
+{
+  "orderId": "ORDER-001"
+}
+```
+Expected: `reservedQuantity` restored. Reservation → `RELEASED`.
+
+#### Error / Edge Case Tests (Expected Failures)
+
+| Test | Request | Body | Expected |
+|------|---------|------|----------|
+| Insufficient stock | `POST /reserve` | `quantity: 99999` | `400` |
+| Duplicate inventory | `POST /inventory` with existing `productId` | — | `400` |
+| No pending reservation | `POST /release` with unknown `orderId` | — | `404` |
+| Product not found | `GET /inventory/65a1b2c3d4e5f6a7b8c9d0e1` | — | `404` |
+
 ## 🔐 Security Features
 
 - Helmet.js for HTTP security headers
