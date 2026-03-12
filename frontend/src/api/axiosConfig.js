@@ -8,6 +8,12 @@ const createInstance = (baseURL) => {
   instance.interceptors.request.use((config) => {
     const token = localStorage.getItem('accessToken');
     if (token) config.headers.Authorization = `Bearer ${token}`;
+    
+    // Auto-detect FormData and let axios handle the Content-Type header
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
+    }
+    
     return config;
   });
 

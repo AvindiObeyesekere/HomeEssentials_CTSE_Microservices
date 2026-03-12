@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, Search, Filter, Edit2, Trash2, Package, RefreshCw } from 'lucide-react';
+import { Plus, Search, Filter, Edit2, Trash2, Package, RefreshCw, Copy, Check } from 'lucide-react';
 import { productsApi } from '../../api/productApi';
 import { useAuth } from '../../context/AuthContext';
 import Button from '../../components/common/Button';
@@ -26,6 +26,7 @@ export default function ProductsPage() {
   const [editProduct, setEditProduct] = useState(null);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [copiedId, setCopiedId] = useState(null);
 
   const fetchProducts = useCallback(async () => {
     setLoading(true);
@@ -75,6 +76,17 @@ export default function ProductsPage() {
     }
   };
 
+  const copyProductId = async (id) => {
+    try {
+      await navigator.clipboard.writeText(id);
+      setCopiedId(id);
+      toast.success('Product ID copied!');
+      setTimeout(() => setCopiedId(null), 2000);
+    } catch (err) {
+      toast.error('Failed to copy ID');
+    }
+  };
+
   const columns = [
     {
       key: 'name',
@@ -119,27 +131,46 @@ export default function ProductsPage() {
         </Badge>
       ),
     },
-    {
+    ...(isAdminOrManager() ? [{
       key: '_id',
-      label: 'Actions',
-      render: (_, row) =>
-        isAdminOrManager() ? (
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => openEdit(row)}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-            >
-              <Edit2 size={15} />
-            </button>
-            <button
-              onClick={() => confirmDelete(row)}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-            >
-              <Trash2 size={15} />
-            </button>
-          </div>
-        ) : null,
+      label: 'Product ID',
+      render: (val) => (
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 font-mono bg-gray-50 px-2 py-1 rounded">{val.slice(0, 8)}...</span>
+          <button
+            onClick={() => copyProductId(val)}
+            className={`p-1 rounded transition-all ${
+              copiedId === val
+                ? 'text-green-600 bg-green-50'
+                : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'
+            }`}
+            title="Copy Product ID"
+          >
+            {copiedId === val ? <Check size={14} /> : <Copy size={14} />}
+          </button>
+        </div>
+      ),
     },
+    {
+      key: 'actions',
+      label: 'Actions',
+      render: (_, row) => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => openEdit(row)}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+          >
+            <Edit2 size={15} />
+          </button>
+          <button
+            onClick={() => confirmDelete(row)}
+            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <Trash2 size={15} />
+          </button>
+        </div>
+      ),
+    }] : []),
   ];
 
   return (
