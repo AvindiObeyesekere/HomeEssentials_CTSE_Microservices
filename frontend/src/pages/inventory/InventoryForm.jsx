@@ -71,7 +71,7 @@ export default function InventoryForm({ item, onSaved, onCancel }) {
             value={form.productId}
             onChange={set('productId')}
             error={errors.productId}
-            placeholder="MongoDB ObjectId of the product"
+            placeholder="Product ID"
             required
           />
           <Input
