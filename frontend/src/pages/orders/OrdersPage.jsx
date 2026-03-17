@@ -6,18 +6,41 @@ import toast from "react-hot-toast";
 
 export default function OrdersPage() {
   const { user } = useAuth();
+  const resolvedUserId = user?.id ?? user?._id ?? "";
   const [form, setForm] = useState({
-    userId: user?.id || "",
+    userId: resolvedUserId,
     productId: "",
     quantity: 1,
   });
   const [loading, setLoading] = useState(false);
   const [createdOrder, setCreatedOrder] = useState(null);
+  const [ordersLoading, setOrdersLoading] = useState(false);
+  const [orders, setOrders] = useState([]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   };
+
+  const loadOrders = async (userId) => {
+    if (!userId) return;
+    try {
+      setOrdersLoading(true);
+      const res = await ordersApi.getByUser(userId);
+      setOrders(res.data?.data ?? []);
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.message || "Failed to load orders");
+    } finally {
+      setOrdersLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    setForm((prev) => ({ ...prev, userId: resolvedUserId }));
+    if (resolvedUserId) loadOrders(resolvedUserId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resolvedUserId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -40,6 +63,7 @@ export default function OrdersPage() {
 
       const { data } = await ordersApi.create(payload);
       setCreatedOrder(data.data);
+      await loadOrders(form.userId);
       toast.success("Order created successfully");
     } catch (err) {
       console.error(err);
@@ -132,52 +156,134 @@ export default function OrdersPage() {
           </button>
         </form>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">
-            Latest Order Result
-          </h3>
-          {!createdOrder ? (
-            <p className="text-sm text-gray-500">
-              Submit the form to see the created order details here.
-            </p>
-          ) : (
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="font-medium text-gray-700">Order ID</span>
-                <span className="font-mono text-gray-900">
-                  {createdOrder.orderId}
-                </span>
+        <div className="space-y-6">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h3 className="text-lg font-semibold text-gray-900 mb-3">
+              Latest Order Result
+            </h3>
+            {!createdOrder ? (
+              <p className="text-sm text-gray-500">
+                Submit the form to see the created order details here.
+              </p>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-700">Order ID</span>
+                  <span className="font-mono text-gray-900">
+                    {createdOrder.orderId}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-700">Status</span>
+                  <span className="px-2 py-0.5 rounded-full text-xs bg-green-50 text-green-700">
+                    {createdOrder.status}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="font-medium text-gray-700">Total Amount</span>
+                  <span className="font-semibold text-gray-900">
+                    Rs. {createdOrder.totalAmount}
+                  </span>
+                </div>
+                <div>
+                  <span className="font-medium text-gray-700">Items</span>
+                  <ul className="mt-1 space-y-1">
+                    {createdOrder.items?.map((it) => (
+                      <li
+                        key={it.productId}
+                        className="flex justify-between text-gray-700"
+                      >
+                        <span>
+                          {it.productName} x {it.quantity}
+                        </span>
+                        <span>Rs. {it.price}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-gray-700">Status</span>
-                <span className="px-2 py-0.5 rounded-full text-xs bg-green-50 text-green-700">
-                  {createdOrder.status}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="font-medium text-gray-700">Total Amount</span>
-                <span className="font-semibold text-gray-900">
-                  Rs. {createdOrder.totalAmount}
-                </span>
-              </div>
-              <div>
-                <span className="font-medium text-gray-700">Items</span>
-                <ul className="mt-1 space-y-1">
-                  {createdOrder.items?.map((it) => (
-                    <li
-                      key={it.productId}
-                      className="flex justify-between text-gray-700"
-                    >
-                      <span>
-                        {it.productName} x {it.quantity}
-                      </span>
-                      <span>Rs. {it.price}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            )}
+          </div>
+
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-semibold text-gray-900">Your Orders</h3>
+              <button
+                type="button"
+                onClick={() => loadOrders(form.userId)}
+                disabled={ordersLoading || !form.userId}
+                className="text-sm font-medium text-orange-600 hover:text-orange-700 disabled:opacity-60"
+              >
+                {ordersLoading ? "Refreshing..." : "Refresh"}
+              </button>
             </div>
-          )}
+
+            {!form.userId ? (
+              <p className="text-sm text-gray-500">
+                Add a User ID to load orders.
+              </p>
+            ) : ordersLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                Loading orders...
+              </div>
+            ) : orders.length === 0 ? (
+              <p className="text-sm text-gray-500">No orders found.</p>
+            ) : (
+              <div className="space-y-3">
+                {orders.map((o) => (
+                  <div
+                    key={o.orderId}
+                    className="border border-gray-100 rounded-lg p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-sm font-semibold text-gray-900">
+                          {o.orderId}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {o.createdAt ? new Date(o.createdAt).toLocaleString() : ""}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-gray-500">Status</div>
+                        <div className="text-xs font-medium text-gray-800">
+                          {o.status}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between text-sm">
+                      <div className="text-gray-600">
+                        Items: <span className="font-medium">{o.items?.length ?? 0}</span>
+                      </div>
+                      <div className="font-semibold text-gray-900">
+                        Rs. {o.totalAmount}
+                      </div>
+                    </div>
+
+                    {Array.isArray(o.items) && o.items.length > 0 && (
+                      <ul className="mt-2 space-y-1 text-sm text-gray-700">
+                        {o.items.slice(0, 3).map((it) => (
+                          <li key={`${o.orderId}-${it.productId}`} className="flex justify-between">
+                            <span className="truncate pr-3">
+                              {it.productName} x {it.quantity}
+                            </span>
+                            <span className="shrink-0">Rs. {it.price}</span>
+                          </li>
+                        ))}
+                        {o.items.length > 3 && (
+                          <li className="text-xs text-gray-500">
+                            + {o.items.length - 3} more item(s)
+                          </li>
+                        )}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
