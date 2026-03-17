@@ -7,6 +7,7 @@ import Input from "../../components/common/Input";
 import Button from "../../components/common/Button";
 import Badge from "../../components/common/Badge";
 import Table from "../../components/common/Table";
+import Modal from "../../components/common/Modal";
 
 export default function OrdersPage() {
   const { user, isAdminOrManager } = useAuth();
@@ -20,6 +21,7 @@ export default function OrdersPage() {
   const [createdOrder, setCreatedOrder] = useState(null);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orders, setOrders] = useState([]);
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -154,12 +156,13 @@ export default function OrdersPage() {
     }
   };
 
-  const handleDelete = async (orderId) => {
-    if (!window.confirm("Delete this order?")) return;
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await ordersApi.remove(orderId);
+      await ordersApi.remove(deleteTarget.orderId);
       toast.success("Order deleted");
       await loadOrders(form.userId);
+      setDeleteTarget(null);
     } catch (err) {
       console.error(err);
       toast.error(err.response?.data?.message || "Failed to delete order");
@@ -331,7 +334,7 @@ export default function OrdersPage() {
                               variant="secondary"
                               size="sm"
                               className="!px-2 !py-1 text-xs"
-                              onClick={() => handleDelete(row.orderId)}
+                              onClick={() => setDeleteTarget(row)}
                             >
                               Delete
                             </Button>
@@ -352,6 +355,52 @@ export default function OrdersPage() {
           </div>
         </div>
       </div>
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        title="Delete order"
+        size="sm"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-gray-600">
+            Are you sure you want to permanently delete this order?
+          </p>
+          {deleteTarget && (
+            <div className="rounded-lg border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-800 space-y-1">
+              <div className="flex justify-between gap-3">
+                <span className="font-semibold">Order ID</span>
+                <span className="font-mono truncate max-w-[200px]">
+                  {deleteTarget.orderId}
+                </span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="font-semibold">Total</span>
+                <span>Rs. {deleteTarget.totalAmount}</span>
+              </div>
+              <div className="flex justify-between gap-3">
+                <span className="font-semibold">Status</span>
+                <span>{deleteTarget.status}</span>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={handleConfirmDelete}
+            >
+              Delete
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
