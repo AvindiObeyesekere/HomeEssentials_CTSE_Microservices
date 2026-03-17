@@ -1,8 +1,12 @@
-import React, { useState } from "react";
-import { ShoppingCart, Loader2 } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { ShoppingCart, RefreshCw, Package, ReceiptText } from "lucide-react";
 import { ordersApi } from "../../api/orderApi";
 import { useAuth } from "../../context/AuthContext";
 import toast from "react-hot-toast";
+import Input from "../../components/common/Input";
+import Button from "../../components/common/Button";
+import Badge from "../../components/common/Badge";
+import Table from "../../components/common/Table";
 
 export default function OrdersPage() {
   const { user } = useAuth();
@@ -42,6 +46,56 @@ export default function OrdersPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedUserId]);
 
+  const statusBadgeClass = (status) => {
+    if (status === "CONFIRMED") return "bg-green-50 text-green-700 border-green-200";
+    if (status === "CANCELLED") return "bg-red-50 text-red-700 border-red-200";
+    return "bg-yellow-50 text-yellow-800 border-yellow-200";
+  };
+
+  const columns = useMemo(
+    () => [
+      {
+        key: "orderId",
+        label: "Order",
+        render: (_v, row) => (
+          <div className="space-y-0.5">
+            <div className="font-semibold text-gray-900">{row.orderId}</div>
+            <div className="text-xs text-gray-500">
+              {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+            </div>
+          </div>
+        ),
+      },
+      {
+        key: "status",
+        label: "Status",
+        render: (v) => <Badge className={statusBadgeClass(v)}>{v}</Badge>,
+      },
+      {
+        key: "items",
+        label: "Items",
+        render: (_v, row) => {
+          const count = Array.isArray(row.items) ? row.items.length : 0;
+          const preview = Array.isArray(row.items)
+            ? row.items.slice(0, 2).map((it) => `${it.productName}×${it.quantity}`).join(", ")
+            : "";
+          return (
+            <div className="space-y-0.5">
+              <div className="text-gray-900 font-medium">{count}</div>
+              <div className="text-xs text-gray-500 truncate max-w-[320px]">{preview || "—"}</div>
+            </div>
+          );
+        },
+      },
+      {
+        key: "totalAmount",
+        label: "Total",
+        render: (v) => <span className="font-semibold text-gray-900">Rs. {v ?? 0}</span>,
+      },
+    ],
+    []
+  );
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.userId || !form.productId || !form.quantity) {
@@ -76,213 +130,144 @@ export default function OrdersPage() {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 space-y-8">
-      <header className="flex items-center gap-3">
-        <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center">
-          <ShoppingCart size={28} className="text-orange-400" />
-        </div>
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Orders Service</h2>
-          <p className="text-gray-500 text-sm">
-            Create a test order to trigger Product, Inventory and Payment flows
-            through the Order Service (port 3004).
-          </p>
-        </div>
-      </header>
-
-      <div className="grid md:grid-cols-2 gap-6">
-        <form
-          onSubmit={handleSubmit}
-          className="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4"
-        >
-          <h3 className="text-lg font-semibold text-gray-900">
-            Create Test Order
-          </h3>
-          <p className="text-xs text-gray-500">
-            Use an existing User ID and Product ID from your other services.
-          </p>
-
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">
-              User ID
-            </label>
-            <input
-              type="text"
-              name="userId"
-              value={form.userId}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-              placeholder="e.g. USER-123"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">
-              Product ID
-            </label>
-            <input
-              type="text"
-              name="productId"
-              value={form.productId}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-              placeholder="e.g. 65a1b2c3d4e5f6g7h8i9j0k1"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="block text-sm font-medium text-gray-700">
-              Quantity
-            </label>
-            <input
-              type="number"
-              min={1}
-              name="quantity"
-              value={form.quantity}
-              onChange={handleChange}
-              className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"
-            />
-          </div>
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-orange-500 text-white px-4 py-2 text-sm font-medium hover:bg-orange-600 disabled:opacity-60"
-          >
-            {loading && (
-              <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            )}
-            <span>{loading ? "Creating..." : "Create Order"}</span>
-          </button>
-        </form>
-
-        <div className="space-y-6">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              Latest Order Result
-            </h3>
-            {!createdOrder ? (
-              <p className="text-sm text-gray-500">
-                Submit the form to see the created order details here.
-              </p>
-            ) : (
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">Order ID</span>
-                  <span className="font-mono text-gray-900">
-                    {createdOrder.orderId}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">Status</span>
-                  <span className="px-2 py-0.5 rounded-full text-xs bg-green-50 text-green-700">
-                    {createdOrder.status}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="font-medium text-gray-700">Total Amount</span>
-                  <span className="font-semibold text-gray-900">
-                    Rs. {createdOrder.totalAmount}
-                  </span>
-                </div>
-                <div>
-                  <span className="font-medium text-gray-700">Items</span>
-                  <ul className="mt-1 space-y-1">
-                    {createdOrder.items?.map((it) => (
-                      <li
-                        key={it.productId}
-                        className="flex justify-between text-gray-700"
-                      >
-                        <span>
-                          {it.productName} x {it.quantity}
-                        </span>
-                        <span>Rs. {it.price}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+    <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
+      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+        <div className="p-6 bg-gradient-to-r from-indigo-50 to-white">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center">
+                <ShoppingCart size={22} />
               </div>
-            )}
-          </div>
-
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-lg font-semibold text-gray-900">Your Orders</h3>
-              <button
-                type="button"
-                onClick={() => loadOrders(form.userId)}
-                disabled={ordersLoading || !form.userId}
-                className="text-sm font-medium text-orange-600 hover:text-orange-700 disabled:opacity-60"
-              >
-                {ordersLoading ? "Refreshing..." : "Refresh"}
-              </button>
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Orders</h2>
+                <p className="text-sm text-gray-600">
+                  Create orders and review order history (Order Service on port 3004).
+                </p>
+              </div>
             </div>
 
-            {!form.userId ? (
-              <p className="text-sm text-gray-500">
-                Add a User ID to load orders.
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => loadOrders(form.userId)}
+              loading={ordersLoading}
+              disabled={!form.userId}
+            >
+              <RefreshCw size={16} />
+              Refresh
+            </Button>
+          </div>
+        </div>
+
+        <div className="p-6 grid lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-1 space-y-4">
+            <div className="rounded-xl border border-gray-200 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <Package size={16} className="text-gray-500" />
+                <h3 className="font-semibold text-gray-900">Create Test Order</h3>
+              </div>
+              <p className="text-xs text-gray-500 mb-4">
+                Provide a valid User ID + Product ID. (Make sure User/Product/Inventory/Payment services are running.)
               </p>
-            ) : ordersLoading ? (
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-                Loading orders...
+
+              <form onSubmit={handleSubmit} className="space-y-3">
+                <Input
+                  label="User ID"
+                  name="userId"
+                  value={form.userId}
+                  onChange={handleChange}
+                  placeholder="e.g. 69b919c65dfc18d5778708eb"
+                  required
+                />
+                <Input
+                  label="Product ID"
+                  name="productId"
+                  value={form.productId}
+                  onChange={handleChange}
+                  placeholder="e.g. 65a1b2c3d4e5f6g7h8i9j0k1"
+                  required
+                />
+                <Input
+                  label="Quantity"
+                  type="number"
+                  min={1}
+                  name="quantity"
+                  value={form.quantity}
+                  onChange={handleChange}
+                  required
+                />
+
+                <Button type="submit" loading={loading} className="w-full">
+                  Create Order
+                </Button>
+
+                <div className="text-xs text-gray-500">
+                  Tip: if you see <span className="font-mono">401</span>, your User Service likely requires auth (JWT).
+                </div>
+              </form>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <ReceiptText size={16} className="text-gray-500" />
+                <h3 className="font-semibold text-gray-900">Latest Result</h3>
               </div>
-            ) : orders.length === 0 ? (
-              <p className="text-sm text-gray-500">No orders found.</p>
-            ) : (
-              <div className="space-y-3">
-                {orders.map((o) => (
-                  <div
-                    key={o.orderId}
-                    className="border border-gray-100 rounded-lg p-3"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-semibold text-gray-900">
-                          {o.orderId}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {o.createdAt ? new Date(o.createdAt).toLocaleString() : ""}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xs text-gray-500">Status</div>
-                        <div className="text-xs font-medium text-gray-800">
-                          {o.status}
-                        </div>
-                      </div>
-                    </div>
 
-                    <div className="mt-2 flex items-center justify-between text-sm">
-                      <div className="text-gray-600">
-                        Items: <span className="font-medium">{o.items?.length ?? 0}</span>
-                      </div>
-                      <div className="font-semibold text-gray-900">
-                        Rs. {o.totalAmount}
-                      </div>
+              {!createdOrder ? (
+                <p className="text-sm text-gray-500">
+                  Create an order to see its details here.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-gray-500">Order ID</div>
+                      <div className="font-mono text-sm text-gray-900">{createdOrder.orderId}</div>
                     </div>
-
-                    {Array.isArray(o.items) && o.items.length > 0 && (
-                      <ul className="mt-2 space-y-1 text-sm text-gray-700">
-                        {o.items.slice(0, 3).map((it) => (
-                          <li key={`${o.orderId}-${it.productId}`} className="flex justify-between">
-                            <span className="truncate pr-3">
-                              {it.productName} x {it.quantity}
-                            </span>
-                            <span className="shrink-0">Rs. {it.price}</span>
-                          </li>
-                        ))}
-                        {o.items.length > 3 && (
-                          <li className="text-xs text-gray-500">
-                            + {o.items.length - 3} more item(s)
-                          </li>
-                        )}
-                      </ul>
-                    )}
+                    <Badge className={statusBadgeClass(createdOrder.status)}>
+                      {createdOrder.status}
+                    </Badge>
                   </div>
-                ))}
+
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600">Total</span>
+                    <span className="font-semibold text-gray-900">Rs. {createdOrder.totalAmount}</span>
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-3">
+                    <div className="text-xs font-semibold text-gray-500 uppercase mb-2">Items</div>
+                    <div className="space-y-1 text-sm">
+                      {createdOrder.items?.map((it) => (
+                        <div key={it.productId} className="flex justify-between gap-3">
+                          <div className="truncate text-gray-700">
+                            {it.productName} <span className="text-gray-400">×</span> {it.quantity}
+                          </div>
+                          <div className="shrink-0 font-medium text-gray-900">Rs. {it.price}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 space-y-3">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Order History</h3>
+                <p className="text-sm text-gray-500">
+                  Showing orders for <span className="font-mono">{form.userId || "—"}</span>
+                </p>
               </div>
-            )}
+            </div>
+
+            <Table
+              columns={columns}
+              data={orders}
+              loading={ordersLoading}
+              emptyMessage={!form.userId ? "Add a User ID to load orders." : "No orders found."}
+            />
           </div>
         </div>
       </div>
