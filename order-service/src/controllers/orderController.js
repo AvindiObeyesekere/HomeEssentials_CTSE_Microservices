@@ -1,5 +1,5 @@
-const { v4: uuidv4 } = require('uuid');
-const Order = require('../models/order');
+const crypto = require('crypto');
+const Order = require('../models/Order');
 const {
   validateUser,
   validateProduct,
@@ -26,7 +26,7 @@ exports.createOrder = async (req, res, next) => {
     await validateUser(userId);
 
     const enrichedItems = [];
-    const orderId = `ORD-${uuidv4()}`;
+    const orderId = `ORD-${crypto.randomUUID()}`;
 
     for (const item of items) {
       if (!item.productId || !item.quantity) {
