@@ -22,6 +22,8 @@ export default function OrdersPage() {
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [orders, setOrders] = useState([]);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -112,6 +114,25 @@ export default function OrdersPage() {
     []
   );
 
+  const filteredOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const matchStatus =
+        statusFilter === "ALL" ? true : o.status === statusFilter;
+      const matchSearch =
+        !searchTerm ||
+        o.orderId?.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchStatus && matchSearch;
+    });
+  }, [orders, statusFilter, searchTerm]);
+
+  const summary = useMemo(() => {
+    const total = orders.length;
+    const confirmed = orders.filter((o) => o.status === "CONFIRMED").length;
+    const pending = orders.filter((o) => o.status === "PENDING").length;
+    const cancelled = orders.filter((o) => o.status === "CANCELLED").length;
+    return { total, confirmed, pending, cancelled };
+  }, [orders]);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.userId || !form.productId || !form.quantity) {
@@ -173,29 +194,58 @@ export default function OrdersPage() {
     <div className="max-w-6xl mx-auto py-8 px-4 space-y-6">
       <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
         <div className="p-6 bg-gradient-to-r from-indigo-50 to-white">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center">
-                <ShoppingCart size={22} />
+          <div className="flex flex-col gap-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center">
+                  <ShoppingCart size={22} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900">Orders</h2>
+                  <p className="text-sm text-gray-600">
+                    Create orders and review order history (Order Service on port 3004).
+                  </p>
+                </div>
               </div>
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900">Orders</h2>
-                <p className="text-sm text-gray-600">
-                  Create orders and review order history (Order Service on port 3004).
-                </p>
-              </div>
+
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => loadOrders(form.userId)}
+                loading={ordersLoading}
+                disabled={!form.userId && !isAdminOrManager()}
+              >
+                <RefreshCw size={16} />
+                Refresh
+              </Button>
             </div>
 
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => loadOrders(form.userId)}
-              loading={ordersLoading}
-              disabled={!form.userId}
-            >
-              <RefreshCw size={16} />
-              Refresh
-            </Button>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="rounded-xl bg-white/70 border border-gray-200 px-4 py-3">
+                <div className="text-xs text-gray-500">Total Orders</div>
+                <div className="text-lg font-semibold text-gray-900">
+                  {summary.total}
+                </div>
+              </div>
+              <div className="rounded-xl bg-green-50 border border-green-100 px-4 py-3">
+                <div className="text-xs text-green-700">Confirmed</div>
+                <div className="text-lg font-semibold text-green-800">
+                  {summary.confirmed}
+                </div>
+              </div>
+              <div className="rounded-xl bg-yellow-50 border border-yellow-100 px-4 py-3">
+                <div className="text-xs text-yellow-800">Pending</div>
+                <div className="text-lg font-semibold text-yellow-900">
+                  {summary.pending}
+                </div>
+              </div>
+              <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3">
+                <div className="text-xs text-red-700">Cancelled</div>
+                <div className="text-lg font-semibold text-red-800">
+                  {summary.cancelled}
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -293,7 +343,7 @@ export default function OrdersPage() {
           </div>
 
           <div className="lg:col-span-2 space-y-3">
-            <div className="flex items-end justify-between gap-3">
+            <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Order History</h3>
                 <p className="text-sm text-gray-500">
@@ -306,6 +356,28 @@ export default function OrdersPage() {
                       </>
                     )}
                 </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-600">Status</span>
+                  <select
+                    className="rounded-lg border border-gray-300 px-2 py-1 text-xs"
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <option value="ALL">All</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="CONFIRMED">Confirmed</option>
+                    <option value="CANCELLED">Cancelled</option>
+                  </select>
+                </div>
+                <Input
+                  className="!mb-0 min-w-[180px]"
+                  label={null}
+                  placeholder="Search by order ID"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
               </div>
             </div>
 
@@ -344,7 +416,7 @@ export default function OrdersPage() {
                     ]
                   : columns
               }
-              data={orders}
+              data={filteredOrders}
               loading={ordersLoading}
               emptyMessage={
                 !form.userId && !isAdminOrManager()
