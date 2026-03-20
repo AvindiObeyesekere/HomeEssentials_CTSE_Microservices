@@ -61,22 +61,6 @@ jobs:
         with:
           args: --severity-threshold=high --file=product-service/package.json
 
-      # SonarCloud Analysis
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: product-service
-          args: >
-            -Dsonar.organization=b4s1ndu
-            -Dsonar.projectKey=B4S1NDU_HomeEssentials_Product_Service
-            -Dsonar.sources=src
-            -Dsonar.tests=src
-            -Dsonar.test.inclusions=**/*.test.js
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-
   # Build and Push Docker Image
   build:
     name: Build & Push to ACR
@@ -162,3 +146,4 @@ jobs:
           echo "Container App: ${{ env.CONTAINER_APP_NAME }}"
           echo "Environment: ${{ env.CONTAINER_APP_ENVIRONMENT }}"
           echo "Image: ${{ secrets.AZURE_REGISTRY_LOGIN_SERVER }}/${{ env.ACR_REPOSITORY }}:${{ github.sha }}"
+

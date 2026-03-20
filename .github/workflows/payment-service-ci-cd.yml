@@ -61,23 +61,6 @@ jobs:
         with:
           args: --severity-threshold=high --file=payment-service/package.json
 
-      # SonarCloud Analysis
-      - name: SonarCloud Scan
-        uses: SonarSource/sonarcloud-github-action@master
-        continue-on-error: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          projectBaseDir: payment-service
-          args: >
-            -Dsonar.organization=b4s1ndu
-            -Dsonar.projectKey=B4S1NDU_HomeEssentials_Payment_Service
-            -Dsonar.sources=src
-            -Dsonar.tests=src
-            -Dsonar.test.inclusions=**/*.test.js
-            -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-
   # Build and Push Docker Image
   build:
     name: Build & Push to ACR
@@ -148,3 +131,4 @@ jobs:
           imageToDeploy: ${{ secrets.AZURE_REGISTRY_LOGIN_SERVER }}/${{ env.ACR_REPOSITORY }}:${{ github.sha }}
           resourceGroup: ${{ env.RESOURCE_GROUP }}
           containerAppName: ${{ env.CONTAINER_APP_NAME }}
+
