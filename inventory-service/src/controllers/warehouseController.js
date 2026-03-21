@@ -1,15 +1,23 @@
 const Warehouse = require('../models/Warehouse');
+const mongoose = require('mongoose');
 
 // Create a new warehouse
 exports.createWarehouse = async (req, res, next) => {
   try {
-    const { warehouse_id, warehouseName } = req.body;
+    const { warehouse_id, warehouseName, user_id } = req.body;
 
     // Validation
     if (!warehouse_id || !warehouseName) {
       return res.status(400).json({
         success: false,
         message: 'Warehouse ID and warehouse name are required'
+      });
+    }
+
+    if (user_id !== undefined && user_id !== null && !mongoose.Types.ObjectId.isValid(user_id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user_id format. Use a valid User _id'
       });
     }
 
@@ -26,6 +34,7 @@ exports.createWarehouse = async (req, res, next) => {
     const warehouse = await Warehouse.create({
       warehouse_id,
       warehouseName,
+      user_id: user_id || null,
       createdAt: new Date(),
       updatedAt: new Date(),
       deletedAt: null
@@ -84,23 +93,39 @@ exports.getWarehouseById = async (req, res, next) => {
 exports.updateWarehouse = async (req, res, next) => {
   try {
     const { warehouse_id } = req.params;
-    const { warehouseName } = req.body;
+    const { warehouseName, user_id } = req.body;
 
     // Validation
-    if (!warehouseName) {
+    if (!warehouseName && user_id === undefined) {
       return res.status(400).json({
         success: false,
-        message: 'Warehouse name is required'
+        message: 'warehouseName or user_id is required'
       });
+    }
+
+    if (user_id !== undefined && user_id !== null && !mongoose.Types.ObjectId.isValid(user_id)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid user_id format. Use a valid User _id'
+      });
+    }
+
+    const updates = {
+      updatedAt: new Date()
+    };
+
+    if (warehouseName) {
+      updates.warehouseName = warehouseName;
+    }
+
+    if (user_id !== undefined) {
+      updates.user_id = user_id || null;
     }
 
     // Find and update warehouse
     const warehouse = await Warehouse.findOneAndUpdate(
       { warehouse_id, deletedAt: null },
-      {
-        warehouseName,
-        updatedAt: new Date()
-      },
+      updates,
       { new: true, runValidators: true }
     );
 

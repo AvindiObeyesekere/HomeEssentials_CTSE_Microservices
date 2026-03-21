@@ -11,6 +11,11 @@ const warehouseSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Warehouse name is required']
   },
+  user_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    default: null,
+    index: true
+  },
   createdAt: {
     type: Date,
     default: Date.now
