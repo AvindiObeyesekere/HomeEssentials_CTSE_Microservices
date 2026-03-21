@@ -2,6 +2,8 @@ const stripeService = require("../services/stripeService");
 const Payment = require("../models/Payment");
 const { sendPaymentNotification } = require("../services/notificationService");
 
+const STRIPE_MIN_AMOUNT = Number.parseInt(process.env.STRIPE_MIN_AMOUNT || "50", 10);
+
 // Create a Payment Intent and return client secret
 const createPayment = async (req, res, next) => {
   try {
@@ -12,8 +14,19 @@ const createPayment = async (req, res, next) => {
         .json({ error: "orderId, userId and amount are required" });
     }
 
-    // Ensure amount is integer (cents)
-    const amountInt = Math.round(amount);
+    // Ensure amount is integer in smallest currency unit (e.g., cents)
+    const amountInt = Math.round(Number(amount));
+    if (!Number.isFinite(amountInt) || amountInt <= 0) {
+      return res.status(400).json({
+        error: "Amount must be a positive number in the smallest currency unit"
+      });
+    }
+
+    if (amountInt < STRIPE_MIN_AMOUNT) {
+      return res.status(400).json({
+        error: `Amount too low. Minimum allowed is ${STRIPE_MIN_AMOUNT} in the smallest currency unit.`
+      });
+    }
 
     const metadata = { orderId, userId, email: email || "" };
     const pi = await stripeService.createPaymentIntent({
@@ -37,6 +50,11 @@ const createPayment = async (req, res, next) => {
 
     return res.json({ clientSecret: pi.client_secret, paymentIntentId: pi.id });
   } catch (err) {
+    if (err?.type && String(err.type).includes("Stripe")) {
+      return res.status(400).json({
+        error: err.message || "Stripe payment validation failed"
+      });
+    }
     next(err);
   }
 };

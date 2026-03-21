@@ -32,8 +32,13 @@ app.get("/", (req, res) => res.send("Payment service is running"));
 
 // Global error handler
 app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ error: "Internal Server Error" });
+  if (err?.type && String(err.type).includes('Stripe')) {
+    console.error('Payment Service Stripe Error:', err.message);
+    return res.status(400).json({ error: err.message || 'Stripe payment validation failed' });
+  }
+
+  console.error('Payment Service Error:', err?.message || err);
+  res.status(err.statusCode || 500).json({ error: err.message || "Internal Server Error" });
 });
 // Start the server
 const PORT = process.env.PORT || 5000;
