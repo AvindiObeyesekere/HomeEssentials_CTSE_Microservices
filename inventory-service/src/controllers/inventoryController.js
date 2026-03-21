@@ -148,17 +148,23 @@ exports.reserveStock = async (req, res, next) => {
   try {
     const { productId, orderId, quantity } = req.body;
 
+    console.log(`[INVENTORY-RESERVE] 📥 Received reserve request: ${quantity} units of ${productId} for order ${orderId}`);
+
     const inventory = await Inventory.findOne({ productId });
 
     if (!inventory) {
+      console.log(`[INVENTORY-RESERVE] ❌ Product ${productId} not found in inventory`);
       return res.status(404).json({
         success: false,
         message: 'Product not found in inventory'
       });
     }
 
+    console.log(`[INVENTORY-RESERVE] Current state - Total: ${inventory.quantity}, Reserved: ${inventory.reservedQuantity}, Available: ${inventory.availableQuantity}`);
+
     // Check if enough stock available
     if (inventory.availableQuantity < quantity) {
+      console.log(`[INVENTORY-RESERVE] ❌ Insufficient stock: requested ${quantity}, available ${inventory.availableQuantity}`);
       return res.status(400).json({
         success: false,
         message: 'Insufficient stock available',
@@ -181,6 +187,9 @@ exports.reserveStock = async (req, res, next) => {
     // Update inventory
     inventory.reservedQuantity += quantity;
     await inventory.save();
+
+    console.log(`[INVENTORY-RESERVE] ✅ Stock reserved! New state - Total: ${inventory.quantity}, Reserved: ${inventory.reservedQuantity}, Available: ${inventory.availableQuantity}`);
+    console.log(`[INVENTORY-RESERVE] Reservation ID: ${reservation._id} (expires in ${expirationMinutes}min)\n`);
 
     res.status(200).json({
       success: true,
