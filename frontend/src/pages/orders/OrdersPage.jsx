@@ -19,6 +19,7 @@ import Modal from "../../components/common/Modal";
 
 export default function OrdersPage() {
   const { user, isAdminOrManager } = useAuth();
+  const isStaff = isAdminOrManager();
   const resolvedUserId = user?.id ?? user?._id ?? "";
 
   const [ordersLoading, setOrdersLoading] = useState(false);
@@ -31,7 +32,7 @@ export default function OrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
 
   const loadOrders = async () => {
-    if (isAdminOrManager()) {
+    if (isStaff) {
       try {
         setOrdersLoading(true);
         const res = await ordersApi.getAll();
@@ -59,7 +60,7 @@ export default function OrdersPage() {
   };
 
   React.useEffect(() => {
-    if (resolvedUserId || isAdminOrManager()) loadOrders();
+    if (resolvedUserId || isStaff) loadOrders();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- load on user id / role context
   }, [resolvedUserId, user?.role]);
 
@@ -73,15 +74,23 @@ export default function OrdersPage() {
     () => [
       {
         key: "orderId",
-        label: "Order",
-        render: (_v, row) => (
-          <div className="space-y-0.5">
-            <div className="font-semibold text-gray-900">{row.orderId}</div>
-            <div className="text-xs text-gray-500">
-              {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+        label: isStaff ? "Order" : "Placed",
+        render: (_v, row) =>
+          isStaff ? (
+            <div className="space-y-0.5">
+              <div className="font-semibold text-gray-900">{row.orderId}</div>
+              <div className="text-xs text-gray-500">
+                {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+              </div>
             </div>
-          </div>
-        ),
+          ) : (
+            <div className="space-y-0.5">
+              <div className="font-semibold text-gray-900">
+                {row.createdAt ? new Date(row.createdAt).toLocaleString() : "—"}
+              </div>
+              <div className="text-xs text-gray-500">Order</div>
+            </div>
+          ),
       },
       {
         key: "status",
@@ -110,19 +119,31 @@ export default function OrdersPage() {
         render: (v) => <span className="font-semibold text-gray-900">Rs. {v ?? 0}</span>,
       },
     ],
-    []
+    [isStaff]
   );
 
   const filteredOrders = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
     return orders.filter((o) => {
       const matchStatus =
         statusFilter === "ALL" ? true : o.status === statusFilter;
-      const matchSearch =
-        !searchTerm ||
-        o.orderId?.toLowerCase().includes(searchTerm.toLowerCase());
+      if (!term) return matchStatus;
+      if (isStaff) {
+        const matchSearch = o.orderId?.toLowerCase().includes(term);
+        return matchStatus && matchSearch;
+      }
+      const dateStr = o.createdAt
+        ? new Date(o.createdAt).toLocaleString().toLowerCase()
+        : "";
+      const productMatch = Array.isArray(o.items)
+        ? o.items.some((it) =>
+            (it.productName || "").toLowerCase().includes(term)
+          )
+        : false;
+      const matchSearch = dateStr.includes(term) || productMatch;
       return matchStatus && matchSearch;
     });
-  }, [orders, statusFilter, searchTerm]);
+  }, [orders, statusFilter, searchTerm, isStaff]);
 
   const summary = useMemo(() => {
     const total = orders.length;
@@ -196,7 +217,7 @@ export default function OrdersPage() {
                 className="!bg-white/15 !text-white !border-white/30 hover:!bg-white/25 backdrop-blur"
                 onClick={() => loadOrders()}
                 loading={ordersLoading}
-                disabled={!resolvedUserId && !isAdminOrManager()}
+                disabled={!resolvedUserId && !isStaff}
               >
                 <RefreshCw size={16} />
                 Refresh
@@ -248,14 +269,9 @@ export default function OrdersPage() {
               <div>
                 <h3 className="text-lg font-semibold text-gray-900">Order history</h3>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  {isAdminOrManager()
+                  {isStaff
                     ? "All orders — admin / manager view"
-                    : (
-                      <>
-                        Account{" "}
-                        <span className="font-mono text-gray-700">{resolvedUserId || "—"}</span>
-                      </>
-                    )}
+                    : "Your recent orders"}
                   {" "}
                   <span className="text-indigo-600 font-medium">· Click a row for details</span>
                 </p>
@@ -278,7 +294,7 @@ export default function OrdersPage() {
                   <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                   <input
                     type="search"
-                    placeholder="Search by order ID…"
+                    placeholder={isStaff ? "Search by order ID…" : "Search by date or product name…"}
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="w-full pl-9 pr-3 py-2.5 text-sm border border-gray-200 rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -290,7 +306,7 @@ export default function OrdersPage() {
             <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
               <Table
             columns={
-              isAdminOrManager()
+              isStaff
                 ? [
                     ...columns,
                     {
@@ -330,7 +346,7 @@ export default function OrdersPage() {
             data={filteredOrders}
             loading={ordersLoading}
             emptyMessage={
-              !resolvedUserId && !isAdminOrManager()
+              !resolvedUserId && !isStaff
                 ? "Sign in to see your orders."
                 : "No orders found."
             }
@@ -356,23 +372,38 @@ export default function OrdersPage() {
           <div className="space-y-5">
             <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-gray-100">
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Order ID</p>
-                <p className="font-mono text-sm font-semibold text-gray-900 mt-0.5 break-all">
-                  {detailOrder.orderId}
-                </p>
+                {isStaff ? (
+                  <>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Order ID</p>
+                    <p className="font-mono text-sm font-semibold text-gray-900 mt-0.5 break-all">
+                      {detailOrder.orderId}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs font-medium text-gray-500 uppercase tracking-wide">Placed on</p>
+                    <p className="text-sm font-semibold text-gray-900 mt-0.5">
+                      {formatDateTime(detailOrder.createdAt)}
+                    </p>
+                  </>
+                )}
               </div>
               <Badge className={statusBadgeClass(detailOrder.status)}>{detailOrder.status}</Badge>
             </div>
 
             <div className="grid sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-xs text-gray-500">Customer (user ID)</p>
-                <p className="font-mono text-gray-900 mt-0.5 break-all">{detailOrder.userId ?? "—"}</p>
-              </div>
-              <div>
-                <p className="text-xs text-gray-500">Payment ID</p>
-                <p className="font-mono text-gray-900 mt-0.5 break-all">{detailOrder.paymentId ?? "—"}</p>
-              </div>
+              {isStaff && (
+                <>
+                  <div>
+                    <p className="text-xs text-gray-500">Customer (user ID)</p>
+                    <p className="font-mono text-gray-900 mt-0.5 break-all">{detailOrder.userId ?? "—"}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">Payment ID</p>
+                    <p className="font-mono text-gray-900 mt-0.5 break-all">{detailOrder.paymentId ?? "—"}</p>
+                  </div>
+                </>
+              )}
               <div>
                 <p className="text-xs text-gray-500">Created</p>
                 <p className="text-gray-900 mt-0.5">{formatDateTime(detailOrder.createdAt)}</p>
@@ -398,10 +429,14 @@ export default function OrdersPage() {
                   <tbody>
                     {Array.isArray(detailOrder.items) && detailOrder.items.length > 0 ? (
                       detailOrder.items.map((it, idx) => (
-                        <tr key={`${it.productId}-${idx}`} className="border-t border-gray-100">
+                        <tr key={`${it.productId ?? "line"}-${idx}`} className="border-t border-gray-100">
                           <td className="px-3 py-2.5">
                             <div className="font-medium text-gray-900">{it.productName ?? "—"}</div>
-                            <div className="text-xs text-gray-400 font-mono truncate max-w-[220px]">{it.productId}</div>
+                            {isStaff && (
+                              <div className="text-xs text-gray-400 font-mono truncate max-w-[220px]">
+                                {it.productId}
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-2.5 text-right tabular-nums">{it.quantity}</td>
                           <td className="px-3 py-2.5 text-right tabular-nums">{formatCurrency(it.price ?? 0)}</td>
