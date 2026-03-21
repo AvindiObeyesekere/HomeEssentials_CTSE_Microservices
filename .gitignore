@@ -4,11 +4,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Environment variables
-.env
-.env.local
-.env.*.local
-
 # Logs
 logs/
 *.log
@@ -45,7 +40,12 @@ out/
 # Docker
 .docker/
 
-# AWS
+# Azure
+.azure/
+azure-local.settings.json
+*.publishsettings
+
+# AWS (Legacy)
 .aws/
 
 # Temporary files

@@ -150,7 +150,92 @@ curl -X POST http://localhost:3002/api/products \
 
 ### Using Postman
 
-Import the Postman collection from `postman-collection.json`
+> Base URL: `http://localhost:3002` | Header: `Content-Type: application/json` on POST/PUT requests
+
+#### System Endpoints
+
+| Method | URL | Description |
+|--------|-----|-------------|
+| `GET` | `http://localhost:3002/health` | Liveness check |
+| `GET` | `http://localhost:3002/readiness` | DB connectivity check |
+| `GET` | `http://localhost:3002/api-docs` | Swagger UI (browser) |
+
+#### Product Endpoints
+
+**Get All Products**
+```
+GET http://localhost:3002/api/products
+```
+Query params: `?page=1&limit=10` · `?category=soap` · `?isActive=true` · `?search=sunlight`
+
+**Get Single Product**
+```
+GET http://localhost:3002/api/products/:id
+```
+
+**Get Products by Category**
+```
+GET http://localhost:3002/api/products/category/soap
+```
+Valid categories: `rice` `soap` `detergent` `cooking-oil` `spices` `cleaning` `personal-care` `other`
+
+**Get All Categories**
+```
+GET http://localhost:3002/api/products/categories/list
+```
+
+**Create Product**
+```
+POST http://localhost:3002/api/products
+```
+```json
+{
+  "name": "Sunlight Soap",
+  "description": "Premium quality soap bar for household cleaning",
+  "category": "soap",
+  "price": 85,
+  "unit": "piece",
+  "brand": "Sunlight",
+  "isActive": true
+}
+```
+
+**Update Product**
+```
+PUT http://localhost:3002/api/products/:id
+```
+```json
+{
+  "name": "Sunlight Soap Bar",
+  "description": "Premium quality soap bar for household cleaning and hygiene",
+  "category": "soap",
+  "price": 90,
+  "unit": "piece",
+  "brand": "Sunlight",
+  "isActive": true
+}
+```
+
+**Delete Product**
+```
+DELETE http://localhost:3002/api/products/:id
+```
+
+#### Validation Error Tests (Expected Failures)
+
+| Test | Request | Expected |
+|------|---------|----------|
+| Missing fields | `POST /api/products` body: `{"name":"Soap"}` | `400` with errors array |
+| Invalid category | `POST /api/products` with `"category": "furniture"` | `400` |
+| Bad ID format | `GET /api/products/not-a-valid-id` | `400` |
+| Not found | `GET /api/products/65a1b2c3d4e5f6a7b8c9d0e1` | `404` |
+
+#### Postman Auto-Variable (Tests tab on Create Product)
+
+```javascript
+const response = pm.response.json();
+pm.collectionVariables.set("productId", response.data._id);
+```
 
 ## 🔐 Security Features
 

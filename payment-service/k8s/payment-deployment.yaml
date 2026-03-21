@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: homeessentials/payment-service:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: MONGO_URI
+              value: "mongodb://mongo:27017/payment_db"
+            - name: STRIPE_SECRET_KEY
+              value: "REPLACE_WITH_SECRET"
+            - name: SUCCESS_URL
+              value: "http://frontend-service/payment-success"
+            - name: CANCEL_URL
+              value: "http://frontend-service/payment-failed"
