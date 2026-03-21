@@ -4,6 +4,7 @@ const PaymentSchema = new mongoose.Schema({
   paymentId: { type: String },
   orderId: { type: String, required: true },
   userId: { type: String, required: true },
+  email: { type: String },
   amount: { type: Number, required: true },
   currency: { type: String, default: "usd" },
   stripePaymentIntentId: { type: String },
