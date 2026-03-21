@@ -20,11 +20,17 @@ app.use(cors({
   credentials: true
 }));
 
-// Rate Limiting
+// Rate Limiting - Exempt internal service routes
 const limiter = rateLimit({
   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  skip: (req) => {
+    // Exempt internal service-to-service routes
+    const internalRoutes = ['/api/products'];
+    // Skip rate limit for GET requests to product endpoints (internal service calls)
+    return req.method === 'GET' && internalRoutes.some(route => req.path.startsWith(route));
+  }
 });
 app.use('/api', limiter);
 
