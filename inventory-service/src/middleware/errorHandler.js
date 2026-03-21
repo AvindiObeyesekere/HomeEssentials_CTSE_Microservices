@@ -7,6 +7,14 @@ exports.notFoundHandler = (req, res, next) => {
 
 // Global Error Handler
 exports.errorHandler = (err, req, res, next) => {
+  if (err.name === 'ValidationError') {
+    const firstValidationError = Object.values(err.errors || {})[0];
+    return res.status(400).json({
+      success: false,
+      message: firstValidationError?.message || 'Validation error'
+    });
+  }
+
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   
   res.status(statusCode).json({

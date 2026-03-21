@@ -1,7 +1,9 @@
 const Inventory = require('../models/Inventory');
+const Warehouse = require('../models/Warehouse');
 const Reservation = require('../models/Reservation');
 const { validationResult } = require('express-validator');
 const axios = require('axios');
+const { sendLowStockAlert, ALLOWED_RECIPIENT_ROLES } = require('../services/notificationService');
 
 // @desc    Get inventory by product ID
 // @route   GET /api/inventory/:productId
@@ -79,6 +81,26 @@ exports.createInventory = async (req, res, next) => {
       });
     }
 
+    // Friendly validation for warehouse input before mongoose validation runs
+    if (!req.body.warehouse_id || !String(req.body.warehouse_id).trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Warehouse ID not found'
+      });
+    }
+
+    const warehouse = await Warehouse.findOne({
+      warehouse_id: req.body.warehouse_id,
+      deletedAt: null
+    });
+
+    if (!warehouse) {
+      return res.status(400).json({
+        success: false,
+        message: 'Warehouse ID not found'
+      });
+    }
+
     // Check if inventory already exists
     const existingInventory = await Inventory.findOne({ productId: req.body.productId });
     if (existingInventory) {
@@ -122,6 +144,8 @@ exports.updateInventory = async (req, res, next) => {
       });
     }
 
+    const wasLowStock = inventory.availableQuantity <= inventory.lowStockThreshold;
+
     // Update fields
     Object.keys(req.body).forEach(key => {
       if (req.body[key] !== undefined) {
@@ -130,6 +154,15 @@ exports.updateInventory = async (req, res, next) => {
     });
 
     await inventory.save();
+
+    const isLowStock = inventory.availableQuantity <= inventory.lowStockThreshold;
+    const crossedToLowStock = !wasLowStock && isLowStock;
+
+    if (crossedToLowStock && req.user && ALLOWED_RECIPIENT_ROLES.includes(req.user.role)) {
+      sendLowStockAlert({ recipient: req.user, inventory }).catch((err) => {
+        console.error('Failed to send low stock alert:', err.message);
+      });
+    }
 
     res.status(200).json({
       success: true,

@@ -47,6 +47,7 @@ const notificationSchema = new mongoose.Schema(
       firstName: String,
       lastName: String,
       userName: String,
+      recipientRole: String,
     },
     attempts: {
       type: Number,

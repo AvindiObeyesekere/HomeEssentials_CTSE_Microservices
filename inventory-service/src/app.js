@@ -9,6 +9,7 @@ const YAML = require('yamljs');
 const path = require('path');
 
 const inventoryRoutes = require('./routes/inventoryRoutes');
+const warehouseRoutes = require('./routes/warehouseRoutes');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 
 const app = express();
@@ -75,6 +76,7 @@ app.get('/readiness', async (req, res) => {
 
 // API Routes
 app.use('/api/inventory', inventoryRoutes);
+app.use('/api/warehouse', warehouseRoutes);
 
 // Root Endpoint
 app.get('/', (req, res) => {
