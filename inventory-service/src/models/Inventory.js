@@ -7,6 +7,12 @@ const inventorySchema = new mongoose.Schema({
     unique: true,
     index: true
   },
+  warehouse_id: {
+    type: String,
+    required: [true, 'Warehouse ID is required'],
+    ref: 'Warehouse',
+    index: true
+  },
   productName: {
     type: String,
     required: [true, 'Product name is required']

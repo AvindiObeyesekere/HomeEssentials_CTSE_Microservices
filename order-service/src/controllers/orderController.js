@@ -7,7 +7,11 @@ const {
   reserveStock,
   deductStock,
   releaseStock,
-  processPayment
+  processPayment,
+  getInventoryByProductId,
+  getWarehouseById,
+  getUserById,
+  sendNotification
 } = require('../services/externalClients');
 
 const calculateTotalAmount = (items) =>
@@ -48,6 +52,74 @@ function normalizeRequestAddress(body) {
     postalCode: (body.postalCode || '').trim(),
     country: (body.country || '').trim() || 'Sri Lanka'
   };
+}
+
+async function notifyWarehouseOwnerIfThresholdReached(items, authorization) {
+  const seenProducts = new Set();
+
+  for (const item of items) {
+    if (!item?.productId || seenProducts.has(item.productId)) {
+      continue;
+    }
+    seenProducts.add(item.productId);
+
+    try {
+      const inventory = await getInventoryByProductId(item.productId, authorization);
+      if (!inventory) {
+        continue;
+      }
+
+      const quantity = Number(inventory.quantity);
+      const threshold = Number(inventory.lowStockThreshold);
+
+      if (!Number.isFinite(quantity) || !Number.isFinite(threshold) || quantity > threshold) {
+        console.log(
+          `[ORDER] Low-stock condition not met for product ${item.productId} (quantity=${quantity}, threshold=${threshold})`
+        );
+        continue;
+      }
+
+      if (!inventory.warehouse_id) {
+        console.log(`[ORDER] No warehouse_id found for product ${item.productId}; skipping low-stock alert`);
+        continue;
+      }
+
+      const warehouse = await getWarehouseById(inventory.warehouse_id, authorization);
+      const ownerUserId = warehouse?.user_id;
+      if (!ownerUserId) {
+        console.log(`[ORDER] Warehouse ${inventory.warehouse_id} has no owner user_id; skipping low-stock alert`);
+        continue;
+      }
+
+      const owner = await getUserById(String(ownerUserId), authorization);
+      const ownerEmail = owner?.email;
+      if (!ownerEmail) {
+        continue;
+      }
+
+      await sendNotification({
+        userId: String(ownerUserId),
+        email: ownerEmail,
+        type: 'LOW_STOCK_ALERT',
+        metadata: {
+          productId: item.productId,
+          productName: inventory.productName || item.productName,
+          currentStock: quantity,
+          threshold,
+          recipientRole: owner?.role,
+          warehouseId: inventory.warehouse_id
+        }
+      });
+
+      console.log(
+        `[ORDER] ✅ Low-stock alert sent to warehouse owner (${ownerEmail}) for product ${item.productId}`
+      );
+    } catch (error) {
+      console.error(
+        `[ORDER] ⚠️ Low-stock owner alert skipped for product ${item.productId}: ${error.message}`
+      );
+    }
+  }
 }
 
 exports.createOrder = async (req, res, next) => {
@@ -135,6 +207,10 @@ exports.createOrder = async (req, res, next) => {
       console.log(`[ORDER] Deducting stock...`);
       await deductStock(orderId, authorization);
       console.log(`[ORDER] ✅ Stock deducted, order CONFIRMED`);
+
+      notifyWarehouseOwnerIfThresholdReached(enrichedItems, authorization).catch((error) => {
+        console.error(`[ORDER] ⚠️ Failed to process low-stock notifications: ${error.message}`);
+      });
     } else if (paymentResult?.success === false) {
       console.log(`[ORDER] Releasing reserved stock...`);
       await releaseStock(orderId, authorization);
@@ -240,6 +316,10 @@ exports.updateOrderStatus = async (req, res, next) => {
       try {
         await deductStock(id, authorization);
         console.log(`[ORDER-UPDATE] ✅ Stock deducted successfully`);
+
+        notifyWarehouseOwnerIfThresholdReached(order.items || [], authorization).catch((error) => {
+          console.error(`[ORDER-UPDATE] ⚠️ Failed to process low-stock notifications: ${error.message}`);
+        });
       } catch (error) {
         console.error(`[ORDER-UPDATE] ❌ Failed to deduct stock:`, error.message);
         throw error;

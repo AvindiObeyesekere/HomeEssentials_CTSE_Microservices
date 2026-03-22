@@ -4,9 +4,10 @@ const USER_SERVICE_BASE_URL = process.env.USER_SERVICE_BASE_URL || 'http://local
 const PRODUCT_SERVICE_BASE_URL = process.env.PRODUCT_SERVICE_BASE_URL || 'http://localhost:3002';
 const INVENTORY_SERVICE_BASE_URL = process.env.INVENTORY_SERVICE_BASE_URL || 'http://localhost:3003';
 const PAYMENT_SERVICE_BASE_URL = process.env.PAYMENT_SERVICE_BASE_URL || 'http://localhost:3005';
+const NOTIFICATION_SERVICE_BASE_URL = process.env.NOTIFICATION_SERVICE_BASE_URL || 'http://localhost:3006';
 
 const httpClient = axios.create({
-  timeout: parseInt(process.env.HTTP_CLIENT_TIMEOUT_MS, 10) || 5000
+  timeout: Number.parseInt(process.env.HTTP_CLIENT_TIMEOUT_MS, 10) || 5000
 });
 
 async function validateUser(userId, authorization) {
@@ -129,6 +130,37 @@ async function processPayment({ orderId, userId, amount }) {
   return response.data;
 }
 
+async function getInventoryByProductId(productId, authorization) {
+  const response = await httpClient.get(`${INVENTORY_SERVICE_BASE_URL}/api/inventory/${productId}`, {
+    headers: authorization ? { Authorization: authorization } : undefined
+  });
+  return response.data?.data || response.data;
+}
+
+async function getWarehouseById(warehouseId, authorization) {
+  const response = await httpClient.get(`${INVENTORY_SERVICE_BASE_URL}/api/warehouse/${warehouseId}`, {
+    headers: authorization ? { Authorization: authorization } : undefined
+  });
+  return response.data?.data || response.data;
+}
+
+async function getUserById(userId, authorization) {
+  const serviceToken = process.env.USER_SERVICE_INTERNAL_TOKEN;
+  const effectiveAuthorization = serviceToken
+    ? `Bearer ${serviceToken}`
+    : authorization;
+
+  const response = await httpClient.get(`${USER_SERVICE_BASE_URL}/api/users/${userId}`, {
+    headers: effectiveAuthorization ? { Authorization: effectiveAuthorization } : undefined
+  });
+  return response.data?.data || response.data;
+}
+
+async function sendNotification(payload) {
+  const response = await httpClient.post(`${NOTIFICATION_SERVICE_BASE_URL}/api/notifications/send`, payload);
+  return response.data?.data || response.data;
+}
+
 module.exports = {
   validateUser,
   validateProduct,
@@ -136,6 +168,10 @@ module.exports = {
   reserveStock,
   deductStock,
   releaseStock,
-  processPayment
+  processPayment,
+  getInventoryByProductId,
+  getWarehouseById,
+  getUserById,
+  sendNotification
 };
 

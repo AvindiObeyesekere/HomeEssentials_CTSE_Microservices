@@ -78,14 +78,16 @@ const sendEmailAsync = async (notification, type) => {
         notification.metadata?.trackingNumber
       );
     } else if (type === 'PAYMENT_SUCCESS') {
+      const userName = notification.metadata?.userName || notification.userId;
       emailContent = emailTemplates.PAYMENT_SUCCESS(
-        notification.userId,
+        userName,
         notification.metadata?.orderId,
         notification.metadata?.amount
       );
     } else if (type === 'PAYMENT_FAILED') {
+      const userName = notification.metadata?.userName || notification.userId;
       emailContent = emailTemplates.PAYMENT_FAILED(
-        notification.userId,
+        userName,
         notification.metadata?.orderId,
         notification.metadata?.reason
       );

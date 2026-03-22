@@ -42,10 +42,16 @@ const notificationSchema = new mongoose.Schema(
     metadata: {
       orderId: String,
       productId: String,
+      productName: String,
       amount: Number,
       reason: String,
+      currentStock: Number,
+      threshold: Number,
+      warehouseId: String,
       firstName: String,
       lastName: String,
+      userName: String,
+      recipientRole: String,
     },
     attempts: {
       type: Number,
