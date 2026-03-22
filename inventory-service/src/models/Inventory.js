@@ -81,6 +81,29 @@ inventorySchema.pre('save', function(next) {
   next();
 });
 
+// Post-find hooks to populate warehouse data
+inventorySchema.post('find', async function(docs) {
+  const Warehouse = require('./Warehouse');
+  for (let doc of docs) {
+    if (doc.warehouse_id && !doc.location.warehouse) {
+      const warehouse = await Warehouse.findOne({ warehouse_id: doc.warehouse_id });
+      if (warehouse) {
+        doc.location.warehouse = warehouse.warehouseName;
+      }
+    }
+  }
+});
+
+inventorySchema.post('findOne', async function(doc) {
+  if (doc && doc.warehouse_id && !doc.location.warehouse) {
+    const Warehouse = require('./Warehouse');
+    const warehouse = await Warehouse.findOne({ warehouse_id: doc.warehouse_id });
+    if (warehouse) {
+      doc.location.warehouse = warehouse.warehouseName;
+    }
+  }
+});
+
 // Ensure virtuals are included in JSON
 inventorySchema.set('toJSON', { virtuals: true });
 inventorySchema.set('toObject', { virtuals: true });

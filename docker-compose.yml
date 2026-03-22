@@ -127,19 +127,29 @@ services:
       - homeessentials-network
     restart: unless-stopped
 
-  # Notification Service (Placeholder for Student 4)
-  # notification-service:
-  #   build:
-  #     context: ./notification-service
-  #     dockerfile: Dockerfile
-  #   container_name: notification-service
-  #   ports:
-  #     - "3006:3006"
-  #   environment:
-  #     - NODE_ENV=development
-  #     - PORT=3006
-  #   networks:
-  #     - homeessentials-network
+  # Notification Service
+  notification-service:
+    build:
+      context: ./notification-service
+      dockerfile: Dockerfile
+    container_name: notification-service
+    ports:
+      - "3006:3006"
+    env_file:
+      - ./notification-service/.env
+    environment:
+      - NODE_ENV=development
+      - PORT=3006
+      - ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000,http://localhost:3004
+    networks:
+      - homeessentials-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3006/health', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 networks:
   homeessentials-network:

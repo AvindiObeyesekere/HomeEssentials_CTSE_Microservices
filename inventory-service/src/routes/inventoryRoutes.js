@@ -16,6 +16,8 @@ const inventoryValidation = [
   body('quantity')
     .notEmpty().withMessage('Quantity is required')
     .isInt({ min: 0 }).withMessage('Quantity must be a non-negative integer'),
+  body('warehouse_id')
+    .notEmpty().withMessage('Warehouse ID is required'),
   body('lowStockThreshold')
     .optional()
     .isInt({ min: 0 }).withMessage('Low stock threshold must be a non-negative integer')

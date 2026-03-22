@@ -20,7 +20,6 @@ const navItems = [
   { to: '/users', label: 'Users', icon: Users, roles: ['Admin'] },
   { to: '/orders', label: 'Orders', icon: ShoppingCart, always: true },
   { to: '/payments', label: 'Payments', icon: CreditCard, always: true, soon: true },
-  { to: '/notifications', label: 'Notifications', icon: Bell, always: true, soon: true },
 ];
 
 export default function Sidebar({ collapsed, onToggle }) {

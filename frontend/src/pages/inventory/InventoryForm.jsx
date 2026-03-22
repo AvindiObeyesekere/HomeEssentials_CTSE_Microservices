@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { inventoryApi } from '../../api/inventoryApi';
 import { productsApi } from '../../api/productApi';
+import { warehouseApi } from '../../api/warehouseApi';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import Select from '../../components/common/Select';
@@ -15,7 +16,7 @@ export default function InventoryForm({ item, onSaved, onCancel }) {
     quantity: item?.quantity ?? '',
     lowStockThreshold: item?.lowStockThreshold ?? 10,
     reorderPoint: item?.reorderPoint ?? 20,
-    warehouse: item?.location?.warehouse ?? 'Main Warehouse',
+    warehouse_id: item?.warehouse_id ?? '',
     shelf: item?.location?.shelf ?? 'A1',
   });
   const [loading, setLoading] = useState(false);
@@ -23,32 +24,58 @@ export default function InventoryForm({ item, onSaved, onCancel }) {
   const [products, setProducts] = useState([]);
   const [inventoryItems, setInventoryItems] = useState([]);
   const [availableProducts, setAvailableProducts] = useState([]);
+  const [warehouses, setWarehouses] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [loadingWarehouses, setLoadingWarehouses] = useState(false);
 
   // Fetch products and inventory on mount
   useEffect(() => {
     const fetchData = async () => {
       setLoadingProducts(true);
+      setLoadingWarehouses(true);
       try {
-        const [productsRes, inventoryRes] = await Promise.all([
-          productsApi.getAll({ limit: 1000 }),
-          inventoryApi.getAll({ limit: 1000 })
-        ]);
-        
+        // Fetch all products
+        const productsRes = await productsApi.getAll({ limit: 1000 });
         const productsList = productsRes.data?.data || [];
-        const inventoryList = inventoryRes.data?.data || [];
-        
+
+        // Fetch all inventory items with pagination fallback
+        let allInventory = [];
+        let page = 1;
+        let hasMore = true;
+        while (hasMore) {
+          const inventoryRes = await inventoryApi.getAll({ page, limit: 100 });
+          const inventoryData = inventoryRes.data?.data || [];
+          allInventory = [...allInventory, ...inventoryData];
+          
+          // Check if there are more pages
+          const totalPages = inventoryRes.data?.totalPages || 1;
+          hasMore = page < totalPages;
+          page++;
+        }
+
+        // Fetch warehouses
+        const warehousesRes = await warehouseApi.getAll();
+        const warehousesList = warehousesRes.data?.data || [];
+
         setProducts(productsList);
-        setInventoryItems(inventoryList);
+        setInventoryItems(allInventory);
+        setWarehouses(warehousesList);
 
         // Filter products that don't have inventory yet
-        const inventoryProductIds = new Set(inventoryList.map(inv => inv.productId));
+        const inventoryProductIds = new Set(allInventory.map(inv => inv.productId));
         const available = productsList.filter(p => !inventoryProductIds.has(p._id));
+        
+        console.log('Products:', productsList.length);
+        console.log('Inventory:', allInventory.length);
+        console.log('Available Products:', available.length);
+        console.log('Inventory Product IDs:', inventoryProductIds);
+        
         setAvailableProducts(available);
       } catch (err) {
-        console.error('Error fetching products/inventory:', err);
+        console.error('Error fetching products/inventory/warehouses:', err);
       } finally {
         setLoadingProducts(false);
+        setLoadingWarehouses(false);
       }
     };
 
@@ -82,6 +109,7 @@ export default function InventoryForm({ item, onSaved, onCancel }) {
     if (!isEdit && !form.productName.trim()) errs.productName = 'Product Name is required';
     if (form.quantity === '' || isNaN(form.quantity) || Number(form.quantity) < 0)
       errs.quantity = 'Valid quantity required';
+    if (!form.warehouse_id.trim()) errs.warehouse_id = 'Warehouse is required';
     return errs;
   };
 
@@ -91,11 +119,16 @@ export default function InventoryForm({ item, onSaved, onCancel }) {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setLoading(true);
     try {
+      // Look up warehouse name from warehouse_id
+      const selectedWarehouse = warehouses.find(w => w.warehouse_id === form.warehouse_id);
+      const warehouseName = selectedWarehouse?.warehouseName || form.warehouse_id;
+      
       const payload = {
         quantity: Number(form.quantity),
         lowStockThreshold: Number(form.lowStockThreshold),
         reorderPoint: Number(form.reorderPoint),
-        location: { warehouse: form.warehouse, shelf: form.shelf },
+        warehouse_id: form.warehouse_id,
+        location: { warehouse: warehouseName, shelf: form.shelf },
       };
       if (!isEdit) {
         payload.productId = form.productId;
@@ -183,7 +216,19 @@ export default function InventoryForm({ item, onSaved, onCancel }) {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Input label="Warehouse" value={form.warehouse} onChange={set('warehouse')} />
+        <Select
+          label="Warehouse"
+          value={form.warehouse_id}
+          onChange={set('warehouse_id')}
+          error={errors.warehouse_id}
+          placeholder={loadingWarehouses ? 'Loading warehouses...' : 'Select a warehouse'}
+          options={warehouses.map(w => ({
+            value: w.warehouse_id,
+            label: w.warehouseName
+          }))}
+          disabled={loadingWarehouses || warehouses.length === 0}
+          required
+        />
         <Input label="Shelf" value={form.shelf} onChange={set('shelf')} />
       </div>
 
